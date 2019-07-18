@@ -1,4 +1,5 @@
 #include "stm32f10x.h"
+#include "MotorMove.h"
 #include "string.h"
 #include "math.h"
 #include "sys.h"
@@ -7,6 +8,7 @@
 #include "DataScope_DP.h"
 #include "exti.h"
 #include "init.h"
+#include "oled.h"
 
 float Error_X,SumError_X,DError_X,LastError_X=0;
 float Error_XP,SumError_XP,DError_XP,LastError_XP=0;
@@ -14,15 +16,17 @@ float Error_XP,SumError_XP,DError_XP,LastError_XP=0;
 float Error_Y,SumError_Y,DError_Y,LastError_Y=0;
 float Error_YP,SumError_YP,DError_YP,LastError_YP=0;
 
+float DError_X1,DError_Y1;
+
 int32_t PWM_X,PWM_XP,PWM_X_Sum;
 int32_t PWM_Y,PWM_YP,PWM_Y_Sum;	
 
-float Kp,Ki,Kd;
-float Kpp,Kip,Kdp;
+extern float Kp,Ki,Kd;
+extern float Kpp,Kip,Kdp;
 
+extern unsigned char hanzi1[];
 
-
-extern u8 Urxbuf[4];
+extern int X,XP,Y,YP;
 int mode_select=0;
 int light1 = 0;
 int light2 = 0;
@@ -45,25 +49,14 @@ int light2 = 0;
 
 void Motors_move(float set_X,float set_Y)
 {
+
+	
 	static uint32_t Count = 0;	
 	static float t = 0;	
-	u8 X,XP,Y,YP;
 
-	
-	Kp = 5.5;
-	Ki = 0.0;
-	Kd = 30;
-	
-	Kpp = 0.0;
-	Kip = 0.0;
-	Kdp = 0.0;
-	
-	X=Urxbuf[0];
-	Y=Urxbuf[1];
-	XP=Urxbuf[2];
-	YP=Urxbuf[3];
 
-//	t+=0.05;
+
+	//	t+=0.05;
 //	if(t>=3.14)  t=-3.14; 
 	
 	/********** X方向PID控制 ***************************/
@@ -73,7 +66,12 @@ void Motors_move(float set_X,float set_Y)
 	LastError_X = Error_X;
 	if(SumError_X>=SumError_MAX) SumError_X=SumError_MAX;
 	else if(SumError_X<=SumError_MIN) SumError_X=SumError_MIN;
-	PWM_X=(int32_t)(Kp* Error_X + Ki* SumError_X + Kd* DError_X);
+	if(DError_X>=5) DError_X1=5;
+	else if(DError_X>=2) DError_X1=2;
+	else if(DError_X>=1) DError_X1=2;
+	
+	
+	PWM_X=(int32_t)(0.75* Error_X + 0.00* SumError_X + 2.5* DError_X);  //0.75 0.003 2.5
 
 	Error_XP = XP-0;         					 									//速度环
 	SumError_XP += Error_XP;				          	
@@ -81,13 +79,13 @@ void Motors_move(float set_X,float set_Y)
 	LastError_XP = Error_XP;
 	if(SumError_XP>=SumError_P_MAX) SumError_XP=SumError_P_MAX;
 	else if(SumError_XP<=SumError_P_MIN) SumError_XP=SumError_P_MIN;
-	PWM_XP=(int32_t)(Kpp* Error_XP + Kip* SumError_XP + Kdp* DError_XP);
+	PWM_XP=(int32_t)(0.0* Error_XP + 0.0* SumError_XP + 0.0* DError_XP);
 		
 	PWM_X_Sum = PWM_X_initial + PWM_X + PWM_XP;
 	if(PWM_X_Sum>=PWM_X_initial+PWM_M) PWM_X_Sum=PWM_X_initial+PWM_M;
 	else if(PWM_X_Sum<=PWM_X_initial-PWM_M) PWM_X_Sum=PWM_X_initial-PWM_M;
 	
-	PWM_X_Sum=PWM_X_initial;
+//	PWM_X_Sum=PWM_X_initial;
 	TIM_SetCompare3(TIM3,PWM_X_Sum);	
 
 	
@@ -98,7 +96,7 @@ void Motors_move(float set_X,float set_Y)
 	LastError_Y = Error_Y;
 	if(SumError_Y>=SumError_MAX) SumError_Y=SumError_MAX;
 	else if(SumError_Y<=SumError_MIN) SumError_Y=SumError_MIN;
-	PWM_Y=(int32_t)(Kp* Error_Y + Ki  * SumError_Y + Kd* DError_Y);  //PI=0.00001
+	PWM_Y=(int32_t)(0.75* Error_Y + 0.00* SumError_Y + 2.5* DError_Y);  //PI=0.00001  5.5  30
 
 	Error_YP = YP-0;         					 										//速度环
 	SumError_YP += Error_YP;				          	
@@ -106,13 +104,13 @@ void Motors_move(float set_X,float set_Y)
 	LastError_YP = Error_YP;
 	if(SumError_YP>=SumError_P_MAX) SumError_YP=SumError_P_MAX;
 	else if(SumError_YP<=SumError_P_MIN) SumError_YP=SumError_P_MIN;
-	PWM_YP=(int32_t)(Kpp* Error_YP + Kip* SumError_YP + Kdp* DError_YP);
+	PWM_YP=(int32_t)(0.0* Error_YP + 0.0* SumError_YP + 0.0* DError_YP);
 		
 	PWM_Y_Sum = PWM_Y_initial + PWM_Y + PWM_YP;
 	if(PWM_Y_Sum>=PWM_Y_initial+PWM_M) PWM_Y_Sum=PWM_Y_initial+PWM_M;
 	else if(PWM_Y_Sum<=PWM_Y_initial-PWM_M) PWM_Y_Sum=PWM_Y_initial-PWM_M;
 
-//	PWM_Y_Sum=PWM_Y_initial - PWM_M;
+//	PWM_Y_Sum=PWM_Y_initial;
 	TIM_SetCompare4(TIM3,PWM_Y_Sum);	
 
 //	GPIO_ResetBits(GPIOA,GPIO_Pin_8);
@@ -147,8 +145,8 @@ void Mode_1()
 		static uint32_t MoveTimeCnt = 0;
 		static uint32_t Count = 0;
 		static int A =0;
-		set_X1=116;
-		set_Y1=205;
+		set_X1=224;
+		set_Y1=225;
 		set_X2=29;
 		set_Y2=121;
 		
@@ -181,8 +179,8 @@ void Mode_1()
 			}
 			else 	light2 = 0;
 
+	
 	/*		
-				
 			if(A) 															//稳定在直线起始位置后，设定到达终止位置的线性变化目标函数
 			{	
 			if(MoveTimeCnt >= priod)	MoveTimeCnt = priod;	
@@ -211,8 +209,8 @@ void Mode_1()
 				}
 			}
 			else 	light1 = 0;
-*/
-			
+
+	*/		
 	
 		Motors_move(set_X,set_Y);			
 			
@@ -234,6 +232,12 @@ void TIM5_IRQHandler(void)   //TIM5中断
 			
 			default:break;
 		}
+
+		//display_number_16x8(1,1,Kd);
+//	  printf("%f\n\r",Kp);
+//	  printf("%f\n\r",Ki);
+//	  printf("%f\n\r",Kd);
+//	  printf("%f\n\r",Kpp);
 
 
 		TIM_ClearITPendingBit(TIM5, TIM_IT_Update  );  //清除TIMx的中断待处理位:TIM 中断源 

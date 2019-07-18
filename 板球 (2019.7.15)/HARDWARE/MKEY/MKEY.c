@@ -6,10 +6,31 @@
 #include "init.h"
 #include "MotorMove.h"
 #include "oled.h"
+#include "DataScope_DP.h"
+#include "math.h"
+#include "OpenMV.h"
 
-extern float Kp,Ki,Kd;
-extern float Kpp,Kip,Kdp;
-extern unsigned char hanzi1[];
+unsigned char i;          
+unsigned char Send_Count; 
+extern int X,XP,Y,YP;
+extern float Error_X,SumError_X,DError_X;
+extern float Error_Y,SumError_Y,DError_Y;
+extern int32_t PWM_X,PWM_Y;
+float a;
+
+extern u8 Urxbuf[4];
+
+float Kp = 0.75,Ki = 0.00,Kd = 2.5;
+float Kpp = 0.0,Kip = 0.0,Kdp = 0.0;
+
+float division_value_Kp = 0.1;
+float division_value_Ki = 0.01;
+float division_value_Kd = 0.1;
+
+float division_value_Kpp = 0.1;
+float division_value_Kip = 0.1;
+float division_value_Kdp = 0.1;
+
 int num;
 /**
 ** PB5-PB8,DD￡?ê?3??￡ PB10-PB14,áD￡?ê?è?
@@ -100,19 +121,67 @@ void GetKeyVal(void)
 {
 	  num = KeyScan();
 	  switch(num)
-	  { 			  				      
-				case 1: printf("1\n"); break;					  				       
-				case 2: printf("2\n"); break;					  				     
-				case 3: printf("3\n"); break;					  				     
-				case 4: printf("A\n"); break;				 	       
-				case 5: printf("4\n"); break;					  				      
-				case 6: printf("5\n"); break;					  				      
-				case 7: printf("6\n"); break;					 			       
-				case 8: printf("B\n"); break;								 		       
-				case 9: printf("7\n"); break;							 				     	
-			  case 10: printf("8\n"); break;						 				      		
-				case 11: printf("9\n"); break;					 				      
-				case 12: printf("C\n"); break;							 				      	
+	  { 			  	
+			
+				//Kp参数调节
+				case 1: 
+					printf("1\n");
+					Kp = Kp - division_value_Kp;
+					break;					  				       
+				case 2: 
+					printf("2\n"); 
+					Kp = Kp + division_value_Kp;
+					break;	
+				
+				//Kpp参数调节
+				case 3: 
+					printf("3\n");
+					Kpp = Kpp - division_value_Kpp;
+					break;					  				     
+				case 4: 
+					printf("A\n");
+					Kpp = Kpp + division_value_Kpp;				
+					break;	
+				
+				//Ki参数调节				
+				case 5: 
+					printf("4\n"); 
+					Ki = Ki - division_value_Ki;
+					break;					  				      
+				case 6: 
+					printf("5\n");
+					Ki = Ki + division_value_Ki;				
+					break;	
+				
+				//Kip参数调节				
+				case 7: 
+					printf("6\n"); 
+					Kip = Kip - division_value_Kip;
+					break;					 			       
+				case 8: 
+					printf("B\n"); 
+					Kip = Kip - division_value_Kip;
+					break;	
+				
+				//Kd参数调节				
+				case 9: 
+					printf("7\n");
+					Kd = Kd - division_value_Kd;
+					break;							 				     	
+			  case 10: 
+					printf("8\n");
+					Kd = Kd + division_value_Kd;				
+					break;
+				
+				//Kdp参数调节				
+				case 11: 
+					printf("9\n");
+					Kdp = Kdp - division_value_Kdp;		
+					break;					 				      
+				case 12: 
+					printf("C\n"); 
+					Kdp = Kdp + division_value_Kdp;		
+					break;							 				      	
 			  case 13: printf("*\n"); break;							 				       	
 				case 14: printf("0\n"); break;					 				      
 				case 15: printf("#\n"); break;		
@@ -127,6 +196,25 @@ void TIM6_IRQHandler(void)   //TIM5中断
 		
 		GetKeyVal();   //矩阵键盘扫描函数
 		
+			//波形发生函数  使用串口2的TX
+			a+=0.1;
+			if(a>=3.14)  a=-3.14; 
+			DataScope_Get_Channel_Data(sin(a), 1 );
+			DataScope_Get_Channel_Data(X , 3 ); 
+			DataScope_Get_Channel_Data(Y , 4 );   
+			DataScope_Get_Channel_Data(Error_X , 5 );
+			DataScope_Get_Channel_Data(PWM_X , 6 );
+			DataScope_Get_Channel_Data(Error_Y , 7 );
+			DataScope_Get_Channel_Data(PWM_Y , 8 ); 
+			DataScope_Get_Channel_Data(Urxbuf[0] , 9 );  
+			DataScope_Get_Channel_Data(5 , 10);
+			Send_Count = DataScope_Data_Generate(10);
+			for( i = 0 ; i < Send_Count; i++) 
+			{
+			while((USART2->SR&0X40)==0);  
+			USART2->DR = DataScope_OutPut_Buffer[i]; 
+			}
+			
 		TIM_ClearITPendingBit(TIM6, TIM_IT_Update  );  //清除TIMx的中断待处理位:TIM 中断源 
 		}
 }

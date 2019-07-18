@@ -195,9 +195,9 @@ void TIM5_Interrupt_Config(void)                                                
     TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM5, ENABLE);
 
-    TIM_TimeBaseStructure.TIM_Prescaler = 71;
+    TIM_TimeBaseStructure.TIM_Prescaler = 720;	//71
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseStructure.TIM_Period = 10000;
+    TIM_TimeBaseStructure.TIM_Period = 10000;	//10000
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
     TIM_TimeBaseInit(TIM5,&TIM_TimeBaseStructure);
@@ -205,7 +205,6 @@ void TIM5_Interrupt_Config(void)                                                
     TIM_ITConfig(TIM5,TIM_IT_Update,ENABLE);
 		TIM_Cmd(TIM5, ENABLE);
 }
-
 void TIM6_Interrupt_Config(void)                                                  //用于矩阵键盘刷新(10ms)			定时器中断 TIM5
 {
     TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
